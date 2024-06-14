@@ -1,11 +1,16 @@
 service: stratostruct-lambda
-
-frameworkVersion: "3"
+frameworkVersion: '3'
 
 provider:
   name: aws
   runtime: nodejs18.x
+  profile: default
+  region: eu-west-2
 
 functions:
   hello:
     handler: handler.hello
+    events:
+      - httpApi:
+          path: /hello
+          method: get
