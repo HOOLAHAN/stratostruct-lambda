@@ -6,11 +6,19 @@ provider:
   runtime: nodejs18.x
   profile: default
   region: eu-west-2
+  environment:
+  MONGO_URI: ${env:MONGO_URI}
+  SECRET: ${env:SECRET}
+  MAPBOX_API_KEY: ${env:MAPBOX_API_KEY}
+
 
 functions:
-  hello:
-    handler: handler.hello
+  app:
+    handler: handler.handler
     events:
-      - httpApi:
-          path: /hello
-          method: get
+      - http:
+          path: /
+          method: any
+      - http:
+          path: /{proxy+}
+          method: any
