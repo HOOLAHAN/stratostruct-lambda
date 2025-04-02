@@ -7,10 +7,9 @@ provider:
   profile: default
   region: eu-west-2
   environment:
-  MONGO_URI: ${env:MONGO_URI}
-  SECRET: ${env:SECRET}
-  MAPBOX_API_KEY: ${env:MAPBOX_API_KEY}
-
+    MONGO_URI: ${env:MONGO_URI}
+    SECRET: ${env:SECRET}
+    MAPBOX_API_KEY: ${env:MAPBOX_API_KEY}
 
 functions:
   app:
@@ -19,6 +18,8 @@ functions:
       - http:
           path: /
           method: any
+          cors: true
       - http:
           path: /{proxy+}
           method: any
+          cors: true
