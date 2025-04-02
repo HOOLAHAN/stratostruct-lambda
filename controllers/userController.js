@@ -40,4 +40,18 @@ const signupUser = async (req, res) => {
   }
 };
 
-module.exports = { signupUser, loginUser };
+// delete user
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.user._id; // Get user ID from the request
+
+    // Delete user from the database
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({ message: 'User account deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete user account' });
+  }
+};
+
+module.exports = { signupUser, loginUser, deleteUser };

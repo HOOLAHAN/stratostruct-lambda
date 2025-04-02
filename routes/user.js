@@ -1,7 +1,5 @@
 const express = require('express');
-
-// controller functions
-const { signupUser, loginUser } = require('../controllers/userController');
+const { signupUser, loginUser, deleteUser } = require('../controllers/userController');
 const requireAuth = require('../middleware/requireAuth');
 const isAdmin = require('../middleware/isAdmin');
 
@@ -13,9 +11,11 @@ router.post('/login', loginUser);
 // signup route
 router.post('/signup', signupUser);
 
+// delete user route
+router.delete('/delete', requireAuth, deleteUser);
+
 // admin-only route
 router.get('/admin', requireAuth, isAdmin, (req, res) => {
-  // This route is only accessible to administrators
   res.json({ message: 'Welcome to the admin page!' });
 });
 
