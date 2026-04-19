@@ -3,9 +3,10 @@ frameworkVersion: '3'
 
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: nodejs20.x
   profile: default
   region: eu-west-2
+  timeout: 15
   environment:
     MONGO_URI: ${env:MONGO_URI}
     SECRET: ${env:SECRET}
