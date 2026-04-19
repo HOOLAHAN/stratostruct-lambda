@@ -6,7 +6,8 @@ const {
   deleteSupplier,
   updateSupplier,
   getSuppliersByProductId,
-  suppliersOfProducts
+  suppliersOfProducts,
+  searchSuppliers
 } = require('../controllers/supplierController')
 
 const requireAuth = require('../middleware/requireAuth')
@@ -22,6 +23,9 @@ router.get('/', getSuppliers);
 
 // GET all suppliers of a product
 router.get('/product/:id', getSuppliersByProductId);
+
+// POST search products and a site postcode to get ranked suppliers
+router.post('/search', searchSuppliers);
 
 // GET a single supplier
 router.get('/:id', getSupplier);

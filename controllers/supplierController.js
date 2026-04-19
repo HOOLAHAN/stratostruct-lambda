@@ -1,5 +1,44 @@
 const Supplier = require('../models/supplierModel')
 const mongoose = require('mongoose')
+const axios = require('axios')
+
+const mapboxBaseUrl = 'https://api.mapbox.com';
+
+const getPostcodeCoordinates = async (postcode) => {
+  const response = await axios.get(`${mapboxBaseUrl}/geocoding/v5/mapbox.places/${encodeURIComponent(postcode)}.json`, {
+    params: { access_token: process.env.MAPBOX_API_KEY },
+  });
+
+  const coordinates = response.data?.features?.[0]?.center;
+  if (!coordinates) {
+    throw new Error(`Could not geocode postcode ${postcode}`);
+  }
+
+  return coordinates;
+};
+
+const getDrivingSummary = async (startCoordinates, endCoordinates) => {
+  const response = await axios.get(
+    `${mapboxBaseUrl}/directions/v5/mapbox/driving/${startCoordinates[0]},${startCoordinates[1]};${endCoordinates[0]},${endCoordinates[1]}`,
+    {
+      params: {
+        geometries: 'geojson',
+        overview: 'simplified',
+        access_token: process.env.MAPBOX_API_KEY,
+      },
+    }
+  );
+
+  const route = response.data?.routes?.[0];
+  if (!route) {
+    throw new Error('Could not calculate route');
+  }
+
+  return {
+    distanceKilometers: Math.round(route.distance / 100) / 10,
+    durationMinutes: Math.round(route.duration / 60),
+  };
+};
 
 // get all suppliers
 const getSuppliers = async (req, res) => {
@@ -111,9 +150,6 @@ const suppliersOfProducts = async (req, res) => {
           return res.status(400).json({ error: "Invalid input. Expecting an array of product IDs." });
       }
 
-      // Log the received product IDs
-      console.log("Received product IDs:", productIds);
-
       const suppliersForProducts = await Supplier.aggregate([
         { $unwind: "$products" },
         { $match: { "products._id": { $in: productIds } } },
@@ -129,13 +165,102 @@ const suppliersOfProducts = async (req, res) => {
         }}
     ]);
 
-      // Log the result of the aggregation
-      console.log("Aggregation result:", suppliersForProducts);
-
       res.status(200).json(suppliersForProducts);
   } catch (error) {
       console.error("Error in suppliersOfProducts:", error);
       res.status(500).json({ message: error.message });
+  }
+};
+
+const searchSuppliers = async (req, res) => {
+  try {
+    const { sitePostcode, productIds } = req.body;
+
+    if (!sitePostcode || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({ error: 'sitePostcode and productIds are required' });
+    }
+
+    const suppliersForProducts = await Supplier.aggregate([
+      { $unwind: "$products" },
+      { $match: { "products._id": { $in: productIds } } },
+      { $group: {
+          _id: "$products._id",
+          component_type: { $first: "$products.component_type" },
+          component_name: { $first: "$products.component_name" },
+          suppliers: { $push: {
+              _id: "$_id",
+              name: "$name",
+              postcode: "$postcode"
+          }}
+      }}
+    ]);
+
+    const siteCoordinates = await getPostcodeCoordinates(sitePostcode);
+    const supplierMap = new Map();
+
+    suppliersForProducts.forEach((product) => {
+      product.suppliers.forEach((supplier) => {
+        const supplierId = supplier._id.toString();
+        const existing = supplierMap.get(supplierId) || {
+          ...supplier,
+          products: [],
+        };
+
+        existing.products.push({
+          _id: product._id,
+          component_type: product.component_type,
+          component_name: product.component_name,
+        });
+        supplierMap.set(supplierId, existing);
+      });
+    });
+
+    const suppliers = await Promise.all(Array.from(supplierMap.values()).map(async (supplier) => {
+      try {
+        const coordinates = await getPostcodeCoordinates(supplier.postcode);
+        const route = await getDrivingSummary(siteCoordinates, coordinates);
+
+        return {
+          ...supplier,
+          coordinates,
+          matchCount: supplier.products.length,
+          ...route,
+        };
+      } catch (error) {
+        return {
+          ...supplier,
+          coordinates: null,
+          matchCount: supplier.products.length,
+          distanceKilometers: null,
+          durationMinutes: null,
+          routeError: error.message,
+        };
+      }
+    }));
+
+    const supplierById = new Map(suppliers.map((supplier) => [supplier._id.toString(), supplier]));
+    const products = suppliersForProducts.map((product) => ({
+      ...product,
+      suppliers: product.suppliers
+        .map((supplier) => supplierById.get(supplier._id.toString()))
+        .filter(Boolean)
+        .sort((a, b) => (a.distanceKilometers ?? Infinity) - (b.distanceKilometers ?? Infinity)),
+    }));
+
+    res.status(200).json({
+      site: {
+        postcode: sitePostcode,
+        coordinates: siteCoordinates,
+      },
+      products,
+      suppliers: suppliers.sort((a, b) => {
+        if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+        return (a.distanceKilometers ?? Infinity) - (b.distanceKilometers ?? Infinity);
+      }),
+    });
+  } catch (error) {
+    console.error("Error in searchSuppliers:", error);
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -146,5 +271,6 @@ module.exports = {
   deleteSupplier,
   updateSupplier,
   getSuppliersByProductId,
-  suppliersOfProducts
+  suppliersOfProducts,
+  searchSuppliers
 }

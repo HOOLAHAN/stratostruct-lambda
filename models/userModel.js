@@ -73,7 +73,6 @@ userSchema.statics.login = async function(email, password) {
   if (!match) {
     throw Error('Incorrect password')
   }
-  console.log(user)
   return user
 }
 
