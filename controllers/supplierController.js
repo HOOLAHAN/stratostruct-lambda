@@ -132,7 +132,7 @@ const updateSupplier = async (req, res) => {
 
   const supplier = await Supplier.findOneAndUpdate({_id: id}, {
     ...req.body
-  })
+  }, { new: true })
 
   if (!supplier) {
     return res.status(404).json({error: 'No such supplier'})
