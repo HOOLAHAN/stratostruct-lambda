@@ -1,75 +1,138 @@
-# StratoStruct Backend Server
+# StratoStruct Backend
 
-Welcome to the StratoStruct Backend Server repository, the backbone of the StratoStruct web application. StratoStruct is engineered using the robust MERN stack (MongoDB, Express.js, React, Node.js), designed to provide a platform for managing and analysing the supply chain for offsite manufacturing of construction components. This server is deployed using the Serverless Framework on AWS Lambda, ensuring scalable and reliable access for users.
+StratoStruct Backend is an Express API deployed to AWS Lambda with the Serverless Framework. It provides authentication, product and supplier management, Mapbox-backed distance/route lookups, and aggregate supplier search for the StratoStruct frontend.
 
-## Overview
+Frontend: [https://www.stratostruct.com](https://www.stratostruct.com)
 
-StratoStruct's backend server is a crucial component that interfaces with the frontend to perform operations such as authentication, data manipulation, and real-time updates. It is designed with scalability, security, and efficiency in mind, making it ideal for handling complex data.
+## Features
 
-**Visit the Website**: [StratoStruct](http://www.stratostruct.com/)
-**Visit the Client Repo** [Client](https://github.com/HOOLAHAN/stratostruct_client)
+- JWT authentication for users.
+- Admin authorization for product and supplier mutation routes.
+- Product CRUD endpoints.
+- Supplier CRUD endpoints.
+- Aggregate supplier search by site postcode and selected product IDs.
+- Mapbox geocoding, driving distance, and route geometry endpoints.
+- Lambda-safe MongoDB connection handling with controlled `503` responses when the database is unavailable.
 
-## Key Features
+## Tech Stack
 
-- **Secure Authentication**: Implements JWT for robust user authentication and authorisation, safeguarding data integrity and privacy.
-- **RESTful API Endpoints**: Offers a suite of API endpoints for CRUD operations (Create, Read, Update, Delete) on supply chain data, facilitating seamless data management.
-- **MongoDB Integration**: Utilises MongoDB for persistent storage, ensuring data durability and high performance.
-- **Real-Time Synchronisation**: Employs WebSocket technology for real-time data updates, enhancing user experience with instant data refresh.
-- **Advanced Error Handling**: Incorporates comprehensive error handling and logging mechanisms for improved app stability and debugging.
-- **Authorisation Middleware**: Features custom middleware for fine-grained access control, ensuring that users can only access data they are authorised to view or modify.
+- Node.js 20 on AWS Lambda
+- Express
+- MongoDB Atlas
+- Mongoose
+- Serverless Framework v3
+- serverless-http
+- Mapbox APIs
 
-## Project Organisation
+## Project Structure
 
-The server's architecture is modular, promoting code reusability and ease of maintenance. Key components include:
-
-- `controllers/`: Houses request handling logic for API endpoints.
-- `middleware/`: Contains custom middleware for authentication and authorisation.
-- `models/`: Defines MongoDB schema and models for data representation.
-- `routes/`: Maps API endpoints to corresponding controller logic.
-- `server.js`: The entry point of the application. It initialises the server, middleware, and routes.
-- `handler.js`: The entry point for the Serverless Framework. It initialises the Lambda functions.
-- `serverless.yml`: Configuration file for the Serverless Framework, defining functions, resources, and plugins.
-- `package.json`: Specifies project dependencies and configurations.
-
-## Deployment and CI/CD
-
-This project leverages GitHub Actions for Continuous Integration and Continuous Deployment (CI/CD), automating the deployment process to AWS Lambda upon code pushes to the main branch. This ensures that the latest version of the application is always available without manual intervention.
+```text
+controllers/      Route handler logic
+middleware/       Authentication and admin authorization
+models/           Mongoose models
+routes/           Express route definitions
+db.js             Reusable MongoDB connection helper
+handler.js        Lambda/serverless-http entry point
+server.js         Express app setup
+serverless.yml    AWS Lambda deployment config
+```
 
 ## Environment Variables
 
-To ensure the proper functionality of the StratoStruct Backend Server, the following environment variables are required:
+The backend requires:
 
-- `MONGO_URI`: Your MongoDB connection string, necessary for connecting to your database.
-- `SECRET`: A secret key used for signing and verifying JWT tokens for authentication purposes. It's crucial for maintaining the security of your user's sessions.
-- `MAPBOX_API_KEY`: An API key obtained from Mapbox, required if you're using Mapbox services for mapping or location features within your application.
+```bash
+export MONGO_URI='mongodb+srv://...'
+export SECRET='your_jwt_secret'
+export MAPBOX_API_KEY='your_mapbox_token'
+```
 
-## Getting Started
+These variables are read by `serverless.yml` during package/deploy and by the app at runtime.
 
-### Prerequisites
+## Local Setup
 
-- Node.js installed locally for development.
-- An active MongoDB database connection, either locally or via MongoDB Atlas, for data storage.
-- Access to an AWS account for deployment using the Serverless Framework.
+Install dependencies:
 
-### Local Setup
+```bash
+npm ci
+```
 
-1. Clone the repository to your local machine.
-2. Install dependencies by running `npm install`.
-3. Set up your environment variables in a `.env` file at the root of the project, including the database URI, secret for JWT, and any other service-specific keys as mentioned above.
-4. Deploy the server using the Serverless Framework with `sls deploy`. The application should now be running and accessible through AWS Lambda.
+Validate that the Lambda handler loads:
 
-### Running Locally
+```bash
+node -e "require('./handler'); console.log('handler loaded')"
+```
 
-To run the server locally for development:
+Package locally with placeholder values:
 
-1. Start the server locally with `npm start`. The application should now be running and accessible on the specified port.
+```bash
+MONGO_URI=mongodb://localhost/test SECRET=test MAPBOX_API_KEY=test npx serverless package --stage dev
+```
 
-### Contributing
+## Deployment
 
-We welcome contributions from the community! If you'd like to contribute, please follow the standard GitHub fork and pull request workflow. Make sure your code adheres to the project's coding standards and include tests for new features or bug fixes.
+Deploy with real environment variables exported:
 
-## Support and Contact
+```bash
+source .env
+npx serverless deploy --stage dev
+```
 
-Should you encounter any issues or have questions regarding the StratoStruct backend server, please do not hesitate to reach out to us. You can file an issue through the GitHub issue tracker or contact the maintainers directly via email.
+The current deployment target is configured in [serverless.yml](serverless.yml):
 
-Thank you for exploring the StratoStruct backend server. For the legacy version, visit the [StratoStruct Legacy](https://github.com/HOOLAHAN/stratostruct-legacy) repository.
+- Runtime: `nodejs20.x`
+- Region: `eu-west-2`
+- Timeout: `15`
+- Service: `stratostruct-lambda`
+
+## API Overview
+
+All product, supplier, and Mapbox routes require authentication.
+
+### User
+
+- `POST /api/user/signup`
+- `POST /api/user/login`
+- `DELETE /api/user/delete`
+
+### Products
+
+- `GET /api/products`
+- `GET /api/products/:id`
+- `POST /api/products` admin only
+- `PATCH /api/products/:id` admin only
+- `DELETE /api/products/:id` admin only
+
+### Suppliers
+
+- `GET /api/suppliers`
+- `GET /api/suppliers/:id`
+- `GET /api/suppliers/product/:id`
+- `POST /api/suppliers` admin only
+- `PATCH /api/suppliers/:id` admin only
+- `DELETE /api/suppliers/:id` admin only
+- `POST /api/suppliers/search`
+- `POST /api/suppliers/suppliers-by-products`
+
+`POST /api/suppliers/search` accepts:
+
+```json
+{
+  "sitePostcode": "SE15 4BT",
+  "productIds": ["product-id-1", "product-id-2"]
+}
+```
+
+It returns the site coordinates, matching products, ranked suppliers, supplier coordinates, component match counts, driving distances, and drive durations.
+
+### Mapbox
+
+- `GET /api/mapbox/getDistance?postcode1=&postcode2=`
+- `POST /api/mapbox/getRoute`
+- `GET /api/mapbox/getCoordinates?postcode=`
+
+## Operational Notes
+
+- If Atlas is paused or the MongoDB SRV record is unavailable, search/login routes can fail. The app now returns a controlled `503` instead of hanging until Lambda timeout.
+- Rotate `MONGO_URI` credentials and `SECRET` if they are exposed in logs, screenshots, or shared text.
+- The backend currently uses Mapbox directly per lookup; caching postcode coordinates and route summaries would reduce latency and API usage in a future pass.
